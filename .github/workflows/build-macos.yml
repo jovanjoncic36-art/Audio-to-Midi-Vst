@@ -1,0 +1,46 @@
+name: Build macOS (Intel)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install CMake (3.28 - 3.31)
+        run: python -m pip install "cmake>=3.28,<4"
+
+      - name: Toolchain info
+        run: |
+          uname -m
+          sw_vers
+          xcode-select -p
+          clang --version
+          cmake --version
+
+      - name: Core unit tests (no JUCE needed)
+        run: |
+          cmake -S . -B build-core -DCMAKE_BUILD_TYPE=Release -DCUTBENCH_BUILD_PLUGIN=OFF
+          cmake --build build-core --parallel 4
+          ctest --test-dir build-core --output-on-failure
+
+      - name: Cache JUCE download
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: juce-8.0.4-v1
+
+      - name: Configure plugin
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
